@@ -16,7 +16,7 @@ data Tree a = Node a [Tree a]
 data MinMax = Min | Max
   deriving (Eq,Read)
 
-
+-- manimax algorithm with alpha-beta prune
 minimaxAB :: (Ord a, Bounded a) => Tree a -> MinMax -> Tree a
 minimaxAB tree mode = minimaxAB' tree minBound maxBound mode
   
@@ -51,7 +51,7 @@ minimaxAB' (Node a ts) alpha beta mode
       in loop2 xs' v' ((Node w ts) : accum)  alpha' beta
         
 
-putTree :: Tree Int -> IO ()
+putTree :: Show a => Tree a -> IO ()
 putTree tree = helper 0 tree
   where
     helper depth (Node n ts) = do
