@@ -4,6 +4,8 @@ import System.IO.Unsafe
 import Data.List
 import Control.Exception
 
+
+
 trace :: Show a => String -> a -> a 
 trace s x = unsafePerformIO ( do
                                 putStrLn s
@@ -16,7 +18,8 @@ data Tree a = Node a [Tree a]
 data MinMax = Min | Max
   deriving (Eq,Read)
 
--- manimax algorithm with alpha-beta prune
+-- minimax algorithm with alpha-beta pruning
+
 minimaxAB :: (Ord a, Bounded a) => Tree a -> MinMax -> Tree a
 minimaxAB tree mode = minimaxAB' tree minBound maxBound mode
   
