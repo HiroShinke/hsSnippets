@@ -52,7 +52,41 @@ minimaxAB' (Node a ts) alpha beta mode
           -- cut off if beta <= v
           xs' = if beta <= alpha' then [] else xs 
       in loop2 xs' v' ((Node w ts) : accum)  alpha' beta
-        
+
+
+minimaxABfr :: (Ord a, Bounded a) => Tree a -> MinMax -> Tree a
+minimaxABfr tree mode = minimaxABfr' tree minBound maxBound mode
+  
+minimaxABfr' :: (Ord a, Bounded a) => Tree a -> a -> a -> MinMax -> Tree a
+minimaxABfr' (Node a []) _ _ _ = Node a []
+minimaxABfr' (Node a ts) alpha beta mode
+  | mode == Min =
+      let (v,ts',_,_) = foldr helper1 (maxBound,[],alpha,beta) ts
+      in (Node v ts')
+  | mode == Max =
+      let (v,ts',_,_) = foldr helper2 (minBound,[],alpha,beta) ts
+      in (Node v ts')
+  where
+    helper1 x (v,accum,alpha,beta) =
+      if alpha < beta
+      then
+        let (Node w ts)  = minimaxABfr' x alpha beta Max
+            v' = min v w
+            beta' = min beta v'
+        in (v',(Node w ts) : accum, alpha, beta')
+      else
+        (v,accum,alpha,beta)
+      
+    helper2 x (v,accum,alpha,beta) =
+      if alpha < beta 
+      then
+        let (Node w ts) = minimaxABfr' x alpha beta Min
+            v' = max v w
+            alpha' = max alpha v'
+        in (v',(Node w ts) : accum, alpha', beta)
+      else
+        (v,accum,alpha,beta)
+
 
 putTree :: Show a => Tree a -> IO ()
 putTree tree = helper 0 tree
@@ -61,6 +95,10 @@ putTree tree = helper 0 tree
       let indent = replicate (depth * 2) ' '
       putStrLn $ indent ++ (show n)
       sequence_ ( map (helper (depth + 1)) ts )
+
+
+reverseTree :: Tree a -> Tree a
+reverseTree (Node a ts) = Node a (reverse $ map reverseTree ts)
 
 tree1 :: Tree Int
 tree1 = ( Node 0 [
@@ -112,6 +150,12 @@ testTree :: Tree Int -> MinMax -> IO ()
 testTree tree mode = do
   putTree tree
   putTree (minimaxAB tree mode)
+
+testTreeFr :: Tree Int -> MinMax -> IO ()
+testTreeFr tree mode = do
+  putTree tree
+  putTree $ reverseTree (minimaxABfr (reverseTree tree) mode)
+
 
   
   
