@@ -1,5 +1,7 @@
 
+import Data.Char
 
+-- Notes about Continuation monad
 
 newtype Cont r a = C ( (a -> r) -> r )
 
@@ -134,4 +136,152 @@ multiMultiC = do
     l <- C $ \out -> out "a" ++ out "b"
     x <- C $ \out -> out "X" ++ out "Y"
     return $ n++l++x++" "
+
+--- ContT
+
+newtype ContT r m a = CT ( (a -> m r) -> m r )
+
+runContT :: ContT r m a -> ( (a -> m r) -> m r )
+runContT (CT c) = c
+
+instance Monad m => Functor (ContT r m) where
+  -- fmap :: (a -> b) -> (ContT r m a) -> (ContT r m b)
+  fmap f (CT cx) = CT (\k -> cx (k . f) )
+
+instance Monad m => Applicative (ContT r m) where
+  -- pure :: a -> ContT r m a
+  pure a = CT (\k -> k a)
+  -- (<*>) :: ContT r m f -> ContT r m a -> ContT r m b
+  (CT fx) <*> (CT cx) = CT (\k -> fx ( \f -> cx (k . f)) )
+
+
+instance Monad m => Monad (ContT r m) where
+  -- (>>=) ::  ContT r m a -> (a -> (ContT r m b)) -> ContT r m b
+  (CT cx) >>= f = CT (\k -> cx (\a -> (runContT (f a)) k ))
+
+class MonadTrans t where
+  lift :: (Monad m) => m a -> t m a
+
+instance MonadTrans (ContT r) where
+  -- lift :: (Monad m) => m a -> t m a
+  lift ma = CT (\k -> do a <- ma
+                         k a
+               )
+
+callCCT :: ( (a -> ContT r m b) -> ContT r m a) -> ContT r m a
+callCCT fn = CT $ \k -> (runContT $ fn (\a -> CT (\_ -> k a))) k
+
+--- ContT + Maybe
+
+perm3 :: [Int] -> Maybe String
+perm3 ns = (runContT (callCCT $ \k -> perm' k ns )) Just
+  where
+    perm' k [] = return ""
+    perm' k (n:ns) = if n == 0
+                     then
+                       lift Nothing
+                     else
+                       do
+                         prod <- perm' k ns
+                         return $ (show n) ++ "*" ++ prod
+
+helloCT :: ContT r Maybe String
+helloCT = return "hello"
+
+nothingCT :: ContT r Maybe String
+nothingCT = lift Nothing
+
+doHelloCT = do
+  h1 <- helloCT   -- ContT String Maybe String
+                  -- == CT ((String -> Maybe String) -> String)
+  h2 <- helloCT   -- ContT String Maybe String
+  h3 <- helloCT   -- ContT String Maybe String
+  return $ h1 ++ h2++ h3
+
+doHelloCT' = do
+  h1 <- helloCT
+  h2 <- nothingCT
+  h3 <- helloCT
+  return $ h1 ++ h2++ h3
+
+
+-- +-----------------------+
+-- +  ContT a Maybe r      |
+-- +   +-------------------+
+-- +   | \ a -- bind in inner monad
+-- +   |  +----------------+
+-- +   |  | ContT b Maybe r|
+-- +   |  |  +-------------+
+-- +   |  |  |\ b -- bind in inner monad
+-- +   |  |  |  +----------+
+-- +   |  |  |  +  b -> m r+
+-- +---+  +--+  +----------+
+
+
+testHelloCT1 = runContT doHelloCT  return
+testHelloCT2 = runContT doHelloCT' return
+
+--- ContT + Identity
+
+newtype Identity a = I a
+
+runIdentity (I a) = a
+
+instance Show a => Show (Identity a) where
+  show (I a) = show a
+
+instance Functor Identity where
+  fmap f (I a) = I (f a)
+  
+instance Applicative Identity where
+  pure a = I a
+  (I f) <*> (I a) = I (f a)
+  
+instance Monad Identity where
+  (I a) >>= f = f a
+
+helloCT' :: ContT r Identity String
+helloCT' = return "hello"
+
+doHelloCT3 = do
+  h1 <- helloCT'
+  h2 <- helloCT'
+  h3 <- helloCT'
+  return $ h1 ++ h2++ h3
+
+testHelloCT3 = runContT doHelloCT3 I
+
+-------
+
+type Cont' r a = ContT r Identity a
+
+doHelloCT6 = do
+  h1 <- helloCT
+  h2 <- helloCT
+  h3 <- helloCT
+  return $ h1 ++ h2++ h3
+  where
+    helloCT :: Cont' r String
+    helloCT = return "hello"
+
+testHelloCT6 = runContT doHelloCT6 return
+
+--- ContT + []
+
+helloCT'' :: ContT r [] String
+helloCT'' = lift ["hello!","goobye!","morning!"]
+
+doHelloCT4 = do
+  h1 <- helloCT''
+  h2 <- helloCT''
+  h3 <- helloCT''
+  return $ h1 ++ h2++ h3
+
+doHelloCT5 = do
+  h1 <- helloCT''
+  h2 <- lift []
+  h3 <- helloCT''
+  return $ h1 ++ h2++ h3
+
+testHelloCT5 = runContT doHelloCT5 return
 
