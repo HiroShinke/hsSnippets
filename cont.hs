@@ -1,5 +1,8 @@
+{-# LANGUAGE FlexibleContexts,FlexibleInstances,MultiParamTypeClasses,UndecidableInstances #-}
+
 
 import Data.Char
+import Control.Monad.Writer
 
 -- Notes about Continuation monad
 
@@ -159,9 +162,6 @@ instance Monad m => Monad (ContT r m) where
   -- (>>=) ::  ContT r m a -> (a -> (ContT r m b)) -> ContT r m b
   (CT cx) >>= f = CT (\k -> cx (\a -> (runContT (f a)) k ))
 
-class MonadTrans t where
-  lift :: (Monad m) => m a -> t m a
-
 instance MonadTrans (ContT r) where
   -- lift :: (Monad m) => m a -> t m a
   lift ma = CT (\k -> do a <- ma
@@ -229,7 +229,6 @@ runIdentity (I a) = a
 
 instance Show a => Show (Identity a) where
   show (I a) = show a
-
 instance Functor Identity where
   fmap f (I a) = I (f a)
   
@@ -284,4 +283,48 @@ doHelloCT5 = do
   return $ h1 ++ h2++ h3
 
 testHelloCT5 = runContT doHelloCT5 return
+
+--- ContT + Writer
+
+instance (Monoid w, MonadWriter w m) => MonadWriter w (ContT r m) where
+  -- tell :: w -> ContT r m ()
+  -- k :: () -> m r
+  tell w = CT (\k -> tell w >>= k )
+  -- pass   :: ContT r m (a,w -> w) -> ContT r m a 
+  -- fx :: ((a,w->w) -> r m) -> r m
+  -- aww :: (a,w->w)
+  -- pass :: m (a,w -> w) -> m a
+  -- k :: a -> m r
+  pass (CT fx) = CT (\k -> fx (\aww -> do
+                                  a <- pass $ return aww
+                                  k a)
+                    )
+  -- listen :: ContT r m a -> ContT r m (a,w) 
+  -- ContT r m (a,w) :: ((a,w) -> m r) -> m r
+  -- k :: (a,w) -> m r
+  -- cx :: (a -> m r) -> m r
+  -- listen :: m a -> m (a,w)
+  listen (CT cx) = CT (\k -> cx (\a -> do
+                                    (a,w) <- listen $ return a
+                                    k (a,w))
+                      )
+
+
+perm4 :: [Int] -> ContT r (Writer [String])  Int
+perm4 ns = (runContT (callCCT $ \k -> perm' k ns )) return
+  where
+    perm' k [] = do
+      lift $ tell ["and at last we get "]
+      return 1
+    perm' k (n:ns) = if n == 0
+                     then
+                       do
+                         lift $ tell ["abort!! " ++ (show n) ]
+                         k 0
+                     else
+                       do
+                         lift $ tell ["continue!! " ++ (show n)]
+                         prod <- perm' k ns
+                         return $ n * prod
+
 
