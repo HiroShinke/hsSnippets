@@ -3,6 +3,7 @@
 
 import Data.Char
 import Control.Monad.Writer
+import Control.Monad.State
 
 -- Notes about Continuation monad
 
@@ -284,6 +285,7 @@ doHelloCT5 = do
 
 testHelloCT5 = runContT doHelloCT5 return
 
+
 --- ContT + Writer
 
 instance (Monoid w, MonadWriter w m) => MonadWriter w (ContT r m) where
@@ -310,6 +312,8 @@ instance (Monoid w, MonadWriter w m) => MonadWriter w (ContT r m) where
                       )
 
 
+
+  
 perm4 :: [Int] -> ContT r (Writer [String])  Int
 perm4 ns = (runContT (callCCT $ \k -> perm' k ns )) return
   where
@@ -326,5 +330,71 @@ perm4 ns = (runContT (callCCT $ \k -> perm' k ns )) return
                          lift $ tell ["continue!! " ++ (show n)]
                          prod <- perm' k ns
                          return $ n * prod
+
+
+--- ContT + State
+
+{-
+instance MonadState (State s) s where 
+  -- get :: m s
+  get   = State $ \s -> (s,s) 
+    -- put :: s -> m ()
+  put s = State $ \_ -> ((),s) 
+-}
+
+instance MonadState s (ContT r (State s)) where
+  -- get :: ContT r (State s)
+  get = lift $ get
+  put s = lift $ put s
+
+
+getC str = do
+  n <- lift $ get
+  let c = str !! n
+  lift $ put (n + 1)
+  return c
+  
+contState :: String -> ContT r (State Int) String
+contState str = runContT (callCCT $ \k -> func k) return
+  where
+    func k = do
+      a <- getC str
+      b <- getC str
+      c <- getC str
+      return [a,b,c]
+  
+testContState = runState (runContT (contState "abc") return) 0
+
+
+contState1 :: String -> ContT r (State Int) String
+contState1 str = runContT (callCCT $ \k -> func k) return
+  where
+    func k = do
+      a <- getC str
+      b <- getC str
+      k "xxx"
+      c <- getC str
+      return [a,b,c]
+
+testContState1 = runState (runContT (contState1 "abc") return) 0
+
+
+contState2 :: String -> ContT r (State Int) String
+contState2 str = runContT (callCCT $ \k -> func k) return
+  where
+    func k = do
+      a <- CT (\k0 -> do n <- lift $ get
+                         x <- k0 'A'
+                         lift $ put n
+                         y <- k0 'B'
+                         lift $ put n
+                         z <- k0 'C'
+                         return $ x ++ y ++ z
+              )
+      b <- getC str
+      c <- getC str
+      return [a,b,c,'x']
+
+testContState2 = runState (runContT (contState2 "abc") return) 0
 
 
