@@ -373,8 +373,7 @@ test5 :: [String] -> ContT r (Reader Env) [String]
 test5 ns = (runContT (callCCT $ \k -> test k ns )) return
   where
     test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
-    test' k [] = do
-      return []
+    test' k [] = return []
     test' k (n:ns) = if n == ""
                      then
                        k []
@@ -386,6 +385,105 @@ test5 ns = (runContT (callCCT $ \k -> test k ns )) return
 
 testContReader1 = runReader ((runContT $ test5 ["sato","sakai"] ) return ) env1
 testContReader2 = runReader ((runContT $ test5 ["sato",""] ) return ) env1
+
+--- ContT + ReaderT + Maybe
+
+test6 :: [String] ->  ContT r (Reader Env) [String]
+test6 ns = (runContT (callCCT $ \k -> test k ns )) return
+  where
+    test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
+    test' k [] = return []
+    test' k (n:ns) = if n == ""
+                     then
+                       k []
+                     else
+                       do
+                         ma <- asks $ lookup n
+                         case ma of
+                           Just a -> do
+                             as <- test' k ns
+                             return $ a:as
+                           Nothing -> do
+                             as <- test' k ns
+                             return as
+
+testContReader3 = runReader ((runContT $ test6 ["sato","sakai"] ) return ) env1
+testContReader4 = runReader ((runContT $ test6 ["sato","suzuki"] ) return ) env1
+
+type CRM r a = ContT r (ReaderT Env Maybe) a
+
+test7' :: CRM r [String]
+test7'  = do
+  ma <- asks $ lookup "sato"
+  mb <- asks $ lookup "sakai"
+  a <- lift $ lift $ ma
+  b <- lift $ lift $ mb
+  return [a,b]
+
+testContReader1' = runReaderT (runContT test7' return) env1
+testContReader2' = runReaderT (runContT test7' return) [("sato","yokohama")]
+
+test7'' :: [String] -> CRM r [String]
+test7'' ns = test ns
+  where
+    test  ns = local (addEnvs [("sato","sapporo")] ) (test' ns) 
+    test' [] = return []
+    test' (n:ns) = do ma <- asks $ lookup n
+                      a <-  lift $ lift $ ma
+                      as <- test' ns
+                      return $ a:as
+
+testContReader1'' = runReaderT (runContT (test7'' ["sato","sakai"]) return) env1
+testContReader2'' = runReaderT (runContT (test7'' ["sato","suzuki"]) return) env1
+
+
+-- callCCT :: ( (a -> CRM r b) -> CRM r a) -> CRM r a
+-- callCCT() :: CRM r [String]
+-- (runContT callCCT()) :: ( [String] -> ReaderT Maybe [String] ) -> ReaderT Maybe [String]
+
+test7 :: [String] -> ReaderT Env Maybe [String]
+test7 ns =  (runContT (callCCT $ \k -> test k ns ) ) return
+  where
+    -- k :: [String] -> CRM r b
+    -- helper :: [String] -> ReaderT Env Maybe [String]
+    -- helper ns = return ns
+    test :: ([String] -> CRM r b) -> [String] -> CRM r [String]
+    test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
+    test' k [] = return []
+    test' k (n:ns) = do ma <- asks $ lookup n
+                        a <-  lift $ lift $ ma
+                        as <- test' k ns
+                        return $ a:as
+
+testContReader5 :: Maybe [String]
+testContReader5 = runReaderT (test7 ["sato","sakai"]) env1
+testContReader6 :: Maybe [String]
+testContReader6 = runReaderT (test7 ["sato","suzuki"]) env1
+
+
+test8 :: [String] -> ReaderT Env Maybe [String]
+test8 ns =  (runContT (callCCT $ \k -> test k ns ) ) return
+  where
+    -- k :: [String] -> CRM r b
+    -- helper :: [String] -> ReaderT Env Maybe [String]
+    -- helper ns = return ns
+    test :: ([String] -> CRM r b) -> [String] -> CRM r [String]
+    test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
+    test' k [] = return []
+    test' k (n:ns) = if n == ""
+                     then
+                       liftMaybeToCRM Nothing
+                     else
+                       do ma <- asks $ lookup n
+                          a <-  liftMaybeToCRM ma
+                          as <- test' k ns
+                          return $ a:as
+    liftMaybeToCRM :: Maybe a -> CRM r a
+    liftMaybeToCRM = lift . lift 
+
+      
+testContReader7 = runReaderT (test8 ["sato","sakai"]) env1
+testContReader8 = runReaderT (test8 ["sato",""]) env1
 
 --- ContT + State
 
