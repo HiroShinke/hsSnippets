@@ -208,13 +208,13 @@ doHelloCT' = do
 
 
 -- +-----------------------+
--- +  ContT a Maybe r      |
+-- +  ContT r Maybe a      |
 -- +   +-------------------+
--- +   | \ a -- bind in inner monad
+-- +   | \ a -- bind param in inner monad
 -- +   |  +----------------+
--- +   |  | ContT b Maybe r|
+-- +   |  | ContT r Maybe b|
 -- +   |  |  +-------------+
--- +   |  |  |\ b -- bind in inner monad
+-- +   |  |  |\ b -- bind param in inner monad
 -- +   |  |  |  +----------+
 -- +   |  |  |  +  b -> m r+
 -- +---+  +--+  +----------+
