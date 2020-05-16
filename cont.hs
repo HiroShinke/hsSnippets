@@ -4,6 +4,7 @@
 import Data.Char
 import Control.Monad.Writer
 import Control.Monad.State
+import Control.Monad.Reader
 
 -- Notes about Continuation monad
 
@@ -331,6 +332,60 @@ perm4 ns = (runContT (callCCT $ \k -> perm' k ns )) return
                          prod <- perm' k ns
                          return $ n * prod
 
+
+--- ContT + Reader
+
+{-
+instance MonadReader e (Reader e) where
+    -- ask :: Reader e e 
+    ask       = R id
+    -- local :: (e -> e) -> Reader e a -> Reader e a
+    local f c = R $ \e -> runReader c (f e)
+-}
+
+instance (MonadReader e m) => MonadReader e (ContT r m) where
+  -- ask :: ContT r (Reader e) e
+  -- k ::  e -> Reader e r
+  ask = CT (\k -> ask >>= k )
+  -- local :: (e -> e) -> ContT r (Reader e) a -> ContT r (Reader e) a
+  -- k ::  a -> Reader e r
+  -- cx :: (a -> Reader e r) -> Reader e r
+  local f (CT cx) = CT (\k -> local f $ cx ( \a -> k a ) )
+
+-- simple implementation of environment
+
+type Env = [(String,String)]  
+  
+env1 = [("sato","yokohama"),
+        ("tanaka","tokyo"),
+        ("sakai", "osaka")]
+
+addEnvs :: [(String,String)] -> Env -> Env
+addEnvs kv env = kv ++ env
+       
+readerFunc :: String -> Env -> String
+readerFunc s e = case lookup s e of
+                   Just p -> p
+                   Nothing -> "nowhere"
+
+
+perm5 :: [String] -> ContT r (Reader Env) [String]
+perm5 ns = (runContT (callCCT $ \k -> perm k ns )) return
+  where
+    perm  k ns = local (addEnvs [("sato","sapporo")] ) (perm' k ns) 
+    perm' k [] = do
+      return []
+    perm' k (n:ns) = if n == ""
+                     then
+                       k []
+                     else
+                       do
+                         a <- asks $ readerFunc n
+                         as <- perm' k ns
+                         return $ a:as
+
+testContReader1 = runReader ((runContT $ perm5 ["sato","sakai"] ) return ) env1
+testContReader2 = runReader ((runContT $ perm5 ["sato",""] ) return ) env1
 
 --- ContT + State
 
