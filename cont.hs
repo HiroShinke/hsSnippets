@@ -369,7 +369,7 @@ readerFunc s e = case lookup s e of
                    Nothing -> "nowhere"
 
 
-test5 :: [String] -> ContT r (Reader Env) [String]
+test5 :: [String] -> Reader Env [String]
 test5 ns = (runContT (callCCT $ \k -> test k ns )) return
   where
     test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
@@ -383,12 +383,12 @@ test5 ns = (runContT (callCCT $ \k -> test k ns )) return
                          as <- test' k ns
                          return $ a:as
 
-testContReader1 = runReader ((runContT $ test5 ["sato","sakai"] ) return ) env1
-testContReader2 = runReader ((runContT $ test5 ["sato",""] ) return ) env1
+testContReader1 = runReader (test5 ["sato","sakai"] ) env1
+testContReader2 = runReader (test5 ["sato",""]) env1
 
 --- ContT + ReaderT + Maybe
 
-test6 :: [String] ->  ContT r (Reader Env) [String]
+test6 :: [String] ->  Reader Env [String]
 test6 ns = (runContT (callCCT $ \k -> test k ns )) return
   where
     test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
@@ -407,8 +407,8 @@ test6 ns = (runContT (callCCT $ \k -> test k ns )) return
                              as <- test' k ns
                              return as
 
-testContReader3 = runReader ((runContT $ test6 ["sato","sakai"] ) return ) env1
-testContReader4 = runReader ((runContT $ test6 ["sato","suzuki"] ) return ) env1
+testContReader3 = runReader (test6 ["sato","sakai"])  env1
+testContReader4 = runReader (test6 ["sato","suzuki"]) env1
 
 type CRM r a = ContT r (ReaderT Env Maybe) a
 
