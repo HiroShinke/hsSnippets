@@ -5,6 +5,7 @@ import Data.Char
 import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad.Reader
+import System.IO
 
 -- Notes about Continuation monad
 
@@ -551,3 +552,39 @@ contState2 str = runContT (callCCT $ \k -> func k) return
 testContState2 = runState (runContT (contState2 "abc") return) 0
 
 
+--- ContT + IO
+
+-- callCCT :: ( (a -> ContT r IO b) -> ContT r IO a) -> ContT r IO a
+-- k :: a -> ContT r IO b
+-- func k :: ContT r IO a
+-- callCCT(..) :: ContT r IO a
+-- (runContT callCCT()) :: ( [String] -> IO [String] ) -> IO [String]
+
+
+instance (MonadIO m) => MonadIO (ContT r m) where
+  -- liftIO :: IO a -> ContT r IO a
+  -- ContT r IO a :: (a -> IO r) -> IO r
+  liftIO = lift . liftIO 
+
+contIO  :: IO [String]
+contIO = runContT (callCCT $ \k -> func k) return
+  where
+    func :: ([String] -> ContT [String] IO [String]) -> ContT [String] IO [String]
+    func k = do
+      liftIO $ putStr "input a> "
+      a <- liftIO $ getLine
+      liftIO $ putStr "input b> "
+      b <- liftIO $ getLine
+      if b == ""
+        then
+        do
+          liftIO $ putStrLn $ "b empty. exit"
+          k []
+        else
+        return []
+      liftIO $ putStr "input c> "
+      c <- liftIO $ getLine
+      liftIO $ putStrLn $ "Chars are " ++ a ++ " " ++ b ++ " " ++ c
+      return [a,b,c]
+
+  
