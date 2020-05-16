@@ -58,31 +58,31 @@ callCC :: ( (a -> Cont r b) -> Cont r a) -> Cont r a
 callCC fn = C $ \k -> (runCont $ fn (\a -> C (\_ -> k a))) k
 
 
-perm :: [Int] -> Int
-perm ns = (runCont (callCC $ \k -> perm' k ns )) id
+test :: [Int] -> Int
+test ns = (runCont (callCC $ \k -> test' k ns )) id
   where
     -- k :: (a -> Cont r b)
-    perm' k [] = return 1
-    perm' k (n:ns) = if n == 0
+    test' k [] = return 1
+    test' k (n:ns) = if n == 0
                      then
                        k 0
                      else
                        do
-                         prod <- perm' k ns
+                         prod <- test' k ns
                          return $ n*prod
 
-perm2 :: [Int] -> String
-perm2 ns = (runCont (callCC $ \k -> perm' k ns )) id
+test2 :: [Int] -> String
+test2 ns = (runCont (callCC $ \k -> test' k ns )) id
   where
-    perm' k [] = return ""
-    perm' k (n:ns) = if n == 0
+    test' k [] = return ""
+    test' k (n:ns) = if n == 0
                      then
                        do
                          x <- k "0"
                          return x
                      else
                        do
-                         prod <- perm' k ns
+                         prod <- test' k ns
                          return $ (show n) ++ "*" ++ prod
 
 
@@ -175,16 +175,16 @@ callCCT fn = CT $ \k -> (runContT $ fn (\a -> CT (\_ -> k a))) k
 
 --- ContT + Maybe
 
-perm3 :: [Int] -> Maybe String
-perm3 ns = (runContT (callCCT $ \k -> perm' k ns )) Just
+test3 :: [Int] -> Maybe String
+test3 ns = (runContT (callCCT $ \k -> test' k ns )) Just
   where
-    perm' k [] = return ""
-    perm' k (n:ns) = if n == 0
+    test' k [] = return ""
+    test' k (n:ns) = if n == 0
                      then
                        lift Nothing
                      else
                        do
-                         prod <- perm' k ns
+                         prod <- test' k ns
                          return $ (show n) ++ "*" ++ prod
 
 helloCT :: ContT r Maybe String
@@ -315,13 +315,13 @@ instance (Monoid w, MonadWriter w m) => MonadWriter w (ContT r m) where
 
 
   
-perm4 :: [Int] -> ContT r (Writer [String])  Int
-perm4 ns = (runContT (callCCT $ \k -> perm' k ns )) return
+test4 :: [Int] -> ContT r (Writer [String])  Int
+test4 ns = (runContT (callCCT $ \k -> test' k ns )) return
   where
-    perm' k [] = do
+    test' k [] = do
       lift $ tell ["and at last we get "]
       return 1
-    perm' k (n:ns) = if n == 0
+    test' k (n:ns) = if n == 0
                      then
                        do
                          lift $ tell ["abort!! " ++ (show n) ]
@@ -329,7 +329,7 @@ perm4 ns = (runContT (callCCT $ \k -> perm' k ns )) return
                      else
                        do
                          lift $ tell ["continue!! " ++ (show n)]
-                         prod <- perm' k ns
+                         prod <- test' k ns
                          return $ n * prod
 
 
@@ -369,23 +369,23 @@ readerFunc s e = case lookup s e of
                    Nothing -> "nowhere"
 
 
-perm5 :: [String] -> ContT r (Reader Env) [String]
-perm5 ns = (runContT (callCCT $ \k -> perm k ns )) return
+test5 :: [String] -> ContT r (Reader Env) [String]
+test5 ns = (runContT (callCCT $ \k -> test k ns )) return
   where
-    perm  k ns = local (addEnvs [("sato","sapporo")] ) (perm' k ns) 
-    perm' k [] = do
+    test  k ns = local (addEnvs [("sato","sapporo")] ) (test' k ns) 
+    test' k [] = do
       return []
-    perm' k (n:ns) = if n == ""
+    test' k (n:ns) = if n == ""
                      then
                        k []
                      else
                        do
                          a <- asks $ readerFunc n
-                         as <- perm' k ns
+                         as <- test' k ns
                          return $ a:as
 
-testContReader1 = runReader ((runContT $ perm5 ["sato","sakai"] ) return ) env1
-testContReader2 = runReader ((runContT $ perm5 ["sato",""] ) return ) env1
+testContReader1 = runReader ((runContT $ test5 ["sato","sakai"] ) return ) env1
+testContReader2 = runReader ((runContT $ test5 ["sato",""] ) return ) env1
 
 --- ContT + State
 
