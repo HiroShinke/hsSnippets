@@ -59,8 +59,8 @@ callCC :: ( (a -> Cont r b) -> Cont r a) -> Cont r a
 callCC fn = C $ \k -> (runCont $ fn (\a -> C (\_ -> k a))) k
 
 
-test :: [Int] -> Int
-test ns = (runCont (callCC $ \k -> test' k ns )) id
+test1 :: [Int] -> Int
+test1 ns = (runCont (callCC $ \k -> test' k ns )) id
   where
     -- k :: (a -> Cont r b)
     test' k [] = return 1
@@ -587,4 +587,47 @@ contIO = runContT (callCCT $ \k -> func k) return
       liftIO $ putStrLn $ "Chars are " ++ a ++ " " ++ b ++ " " ++ c
       return [a,b,c]
 
+--- Application : for-loop 
+  
+forLoop :: Monad m => [a] -> (a -> ContT () m c) -> m ()
+forLoop xs func = runContT (loop xs) return
+  where
+    loop []     = return ()
+    loop (x:xs) = do func x
+                     loop xs
+      
+breakOut :: Monad m => ContT () m c
+breakOut = CT (\_ -> return () )
+
+test10 = forLoop [0..] $ \i -> do
+  if i > 10 then breakOut else return ()
+  lift $ putStrLn $ "Number: " ++ show i
+
+--- goto
+
+-- callCCT :: ( (a -> ContT r IO b) -> ContT r IO a) -> ContT r IO a
+-- out :: (a -> ContT r IO b) -> ContT r IO a
+-- fn :: a -> ContT r IO b
+-- fn :: ContT r IO a
+
+goto :: ContT r IO (ContT r IO b)
+goto = callCCT $ \out -> let fn = out fn
+                         in return fn
+
+test11 :: ContT r IO ()
+test11 = do
+  label1 <- goto
+  lift $ putStrLn "1"
+  label2 <- goto
+  lift $ putStrLn "2"
+  line <-lift $ getLine
+  case line of
+    "1" -> label1
+    "2" -> label2
+    _   -> return ()
+  lift $ putStrLn "end"
+
+  
+
+  
   
