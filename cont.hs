@@ -58,7 +58,6 @@ callCC :: ( (a -> Cont r b) -> Cont r a) -> Cont r a
 -- (runCont $ fn (\a -> C (\_ -> k a)) ) k :: r
 callCC fn = C $ \k -> (runCont $ fn (\a -> C (\_ -> k a))) k
 
-
 test1 :: [Int] -> Int
 test1 ns = (runCont (callCC $ \k -> test' k ns )) id
   where
@@ -106,17 +105,16 @@ testOneC' = do
   return $ one ++ (show two) -- Cont r String
 
 -- +-----------------------+
--- +  Cont a r             |
+-- +  Cont r a             |
 -- +   +-------------------+
--- +   | \a
--- +   |  +----------------+
--- +   |  | Cont b r       |
+-- +   | a -> Cont r b     |
+-- +   |  +----------------+   
+-- +   |  | Cont r b       |
 -- +   |  |  +-------------+
--- +   |  |  |\b
+-- +   |  |  | b -> r
 -- +   |  |  |  +----------+
--- +   |  |  |  +  b ->r   +
+-- +   |  |  |  +   r      +
 -- +---+  +--+  +----------+
-
 
 twoHelloC = do
     two <- twoC
@@ -207,17 +205,16 @@ doHelloCT' = do
   h3 <- helloCT
   return $ h1 ++ h2++ h3
 
-
 -- +-----------------------+
 -- +  ContT r Maybe a      |
 -- +   +-------------------+
--- +   | \ a -- bind param in inner monad
+-- +   | \ a -> ContT r Maybe b    a -- bind param
 -- +   |  +----------------+
 -- +   |  | ContT r Maybe b|
 -- +   |  |  +-------------+
--- +   |  |  |\ b -- bind param in inner monad
+-- +   |  |  |\  b -> Maybe r      b -- bind param
 -- +   |  |  |  +----------+
--- +   |  |  |  +  b -> m r+
+-- +   |  |  |  +  Maybe r |
 -- +---+  +--+  +----------+
 
 
@@ -607,8 +604,8 @@ test10 = forLoop [0..] $ \i -> do
 
 -- callCCT :: ( (a -> ContT r IO b) -> ContT r IO a) -> ContT r IO a
 -- out :: (a -> ContT r IO b) -> ContT r IO a
--- fn :: a -> ContT r IO b
 -- fn :: ContT r IO a
+-- 
 
 goto :: ContT r IO (ContT r IO b)
 goto = callCCT $ \out -> let fn = out fn
